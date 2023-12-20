@@ -1,0 +1,168 @@
+﻿@model IEnumerable<ToDo_web_application.Models.TodoItem>
+
+<div>
+    <h2>Add New Todo</h2>
+
+    <form id="addTodoForm">
+        <label for="newTodoTitle">Title:</label>
+        <input type="text" id="newTodoTitle" placeholder="Title" />
+        <label for="newTodoStatus">Complete:</label>
+        <input type="checkbox" id="newTodoStatus" />
+        <button type="button" class="btn btn-outline-light" id="btnAddTodo">Add Todo</button>
+        <button type="button" class="btn btn-outline-" id="btnCancel">Cancel</button>
+    </form>
+</div>
+<div>
+    <h2>Todo List</h2>
+
+    <ul id="todoList">
+        @if (Model != null)
+        {
+            @foreach (var item in Model)
+            {
+                <li data-id="@item.Id">
+                    <span class="todo-title">@item.Title</span>
+                    <input type="checkbox" class="todo-status" data-id="@item.Id" @(item.IsComplete ? "checked" : "") />
+                    <button class="btn-delete" data-id="@item.Id">Delete</button>
+                    <button class="btn-edit" data-id="@item.Id">Edit</button>
+                </li>
+            }
+        }
+        else
+        {
+            <li>No items found</li>
+        }
+    </ul>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script>
+    $(document).ready(function () {
+        // Load todos on page load
+        loadTodos();
+
+        // Add todo button click event
+        $("#btnAddTodo").on("click", function () {
+            var title = $("#newTodoTitle").val();
+            var isComplete = $("#newTodoStatus").prop("checked");
+            addTodo(title, isComplete);
+        });
+
+        // Checkbox change event
+        $("#todoList").on("change", ".todo-status", function () {
+            var id = $(this).data("id");
+            var isComplete = $(this).prop("checked");
+            updateTodoStatus(id, isComplete);
+        });
+
+        // Delete button click event
+        $("#todoList").on("click", ".btn-delete", function () {
+            var id = $(this).data("id");
+            deleteTodo(id);
+        });
+
+        // Edit button click event
+        $("#todoList").on("click", ".btn-edit", function () {
+            var listItem = $(this).closest("li");
+            var id = listItem.data("id");
+            var title = listItem.find(".todo-title").text();
+            var isComplete = listItem.find(".todo-status").prop("checked");
+
+            // Populate the form with existing values
+            $("#newTodoTitle").val(title);
+            $("#newTodoStatus").prop("checked", isComplete);
+
+            // Update the form button to act as an update button
+            $("#btnAddTodo").text("Update Todo").off("click").on("click", function () {
+                updateTodo(id, $("#newTodoTitle").val(), $("#newTodoStatus").prop("checked"));
+            });
+        });
+
+        // Function to load todos using AJAX
+        function loadTodos() {
+            $.ajax({
+                url: '/api/Todo',
+                method: 'GET',
+                success: function (data) {
+                    renderTodos(data);
+                }
+            });
+        }
+
+        // Function to render todos
+        function renderTodos(todos) {
+            var todoList = $("#todoList");
+            todoList.empty();
+
+            $.each(todos, function (index, item) {
+                var listItem = $('<li>');
+                listItem.attr("data-id", item.id);
+                listItem.append('<span class="todo-title">' + item.title + '</span>');
+                listItem.append('<input type="checkbox" class="todo-status" data-id="' + item.id + '" ' + (item.isComplete ? 'checked' : '') + ' />');
+                listItem.append('<button class="btn-delete" data-id="' + item.id + '">Delete</button>');
+                listItem.append('<button class="btn-edit" data-id="' + item.id + '">Edit</button>');
+
+                todoList.append(listItem);
+            });
+        }
+
+        // Function to add a new todo
+        function addTodo(title, isComplete) {
+            $.ajax({
+                url: '/api/Todo',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ title: title, isComplete: isComplete }),
+                success: function (data) {
+                    loadTodos();
+                    $("#newTodoTitle").val('');
+                    $("#newTodoStatus").prop("checked", false); // Reset checkbox after adding todo
+                }
+            });
+        }
+
+        // Function to update todo status
+        function updateTodoStatus(id, isComplete) {
+            $.ajax({
+                url: '/api/Todo/' + id,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({ id: id, title: "", isComplete: isComplete }),
+                success: function () {
+                    loadTodos();
+                }
+            });
+        }
+
+        // Function to update todo
+        function updateTodo(id, title, isComplete) {
+            $.ajax({
+                url: '/api/Todo/' + id,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({ id: id, title: title, isComplete: isComplete }),
+                success: function () {
+                    loadTodos();
+                    // Reset the form after updating
+                    $("#newTodoTitle").val('');
+                    $("#newTodoStatus").prop("checked", false);
+                    // Reset button text and click event
+                    $("#btnAddTodo").text("Add Todo").off("click").on("click", function () {
+                        addTodo($("#newTodoTitle").val(), $("#newTodoStatus").prop("checked"));
+                    });
+                }
+            });
+        }
+
+        // Function to delete todo
+        function deleteTodo(id) {
+            $.ajax({
+                url: '/api/Todo/' + id,
+                method: 'DELETE',
+                success: function () {
+                    loadTodos();
+                }
+            });
+        }
+    });
+</script>
